@@ -1,0 +1,35 @@
+Description
+
+Newman likes playing with cats. He possesses lots of cats in his home. Because the number of cats is really huge, Newman wants to group some of the cats. To do that, he first offers a number to each of the cat (1, 2, 3, …, n). Then he occasionally combines the group cat i is in and the group cat j is in, thus creating a new group. On top of that, Newman wants to know the size of the k-th biggest group at any time. So, being a friend of Newman, can you help him?
+
+Input
+
+1st line: Two numbers N and M (1 ≤ N, M ≤ 200,000), namely the number of cats and the number of operations.
+
+2nd to (m + 1)-th line: In each line, there is number C specifying the kind of operation Newman wants to do. If C = 0, then there are two numbers i and j (1 ≤ i, j ≤ n) following indicating Newman wants to combine the group containing the two cats (in case these two cats are in the same group, just do nothing); If C = 1, then there is only one number k (1 ≤ k ≤ the current number of groups) following indicating Newman wants to know the size of the k-th largest group.
+
+Output
+
+For every operation “1” in the input, output one number per line, specifying the size of the kth largest group.
+
+Sample Input
+
+10 10
+0 1 2
+1 4
+0 3 4
+1 2
+0 5 6
+1 1
+0 7 8
+1 1
+0 9 10
+1 1
+
+Sample Output
+
+1
+2
+2
+2
+2

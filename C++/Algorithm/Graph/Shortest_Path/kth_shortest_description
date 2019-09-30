@@ -1,0 +1,29 @@
+DETAILS: UDF's capital consists of N stations. The hall is numbered S(source), while the station numbered T denotes prince' current place(destination). M muddy directed sideways connect some of the stations. Remmarguts' path to welcome the princess might include the same station twice or more than twice, even it is the station with number S or T. Different paths with same length will be considered disparate.
+
+Input
+The first line contains two integer numbers N and M (1 <= N <= 1000, 0 <= M <= 100000). Stations are numbered from 1 to N. Each of the following M lines contains three integer numbers A, B and T (1 <= A, B <= N, 1 <= T <= 100). It shows that there is a directed sideway from A-th station to B-th station with time T.
+
+The last line consists of three integer numbers S, T and K (1 <= S, T <= N, 1 <= K <= 1000).
+
+Output
+A single line consisting of a single integer number: the length (time required) to welcome Princess Uyuw using the K-th shortest path. If K-th shortest path does not exist, you should output "-1" (without quotes) instead.
+
+Sample Input
+
+2 2
+
+1 2 5
+
+2 1 4
+
+1 2 2
+
+Sample Output
+
+14
+A*算法可以找到从原点S到终点T的一条最短路，然后结束算法。但A*算法同样也可以用来寻找K短路。
+如果我们不设置closeset，A*算法的搜索空间里会有很多冗余的重复状态，但我们每次都只搜索距离终点最近的节点，所以如果终点可达，最终我们第一次搜索到终点T时，一定就是找到了一条最短路。当我们下一次又搜索到终点T时，一定有是当前的最优的路径，所以就是次短路……这样我们就可以得到我们要求的K短路了。
+这题的难点也就是评估函数h(n)的设置。当评估函数h(n)恰好等于实际距离h*(n)时，A*算法是非常高效的。我们可以在给定图G的反向图G’中从T点执行一次Dijkstra，求得G’中T到所有其他节点的最短距离，就是图G中所有其他节点到T的最短距离，这恰好就是我们需要的h*(n)。
+g(n)是从S到点n的最短距离，可以在A*算法的执行过程中逐步求得。
+然后，我们就可以使用f(n)=g(n)+h(n)来给openset设置优先级，每次取出权最小的节点进行搜索，直到搜索到T点K次，算法结束。
+如果T点是从S点不可达的，则不加限制的话算法将永远无法结束。我们需要找K短路，那么每个节点都不可能出现大于K次。所以当某个节点出现了大于K次时，就不要再该节点上继续扩展搜索空间了。

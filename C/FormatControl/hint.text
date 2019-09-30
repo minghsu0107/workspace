@@ -1,0 +1,45 @@
+在 Unix, Linux 環境下，可以藉由指令 xxd 詳細地看出每一個字元情況，尤其是一般文字編輯器看不到的可視字元。
+
+xxd test.dat
+xxd a.text
+xxd b.bin
+
+Also, we can use od -c (-c means dump the data in ASCII)
+
+od -c a.text
+
+或者可以下達 ll 看出檔案大小 (unit: byte)($ ll -h 則可以進行檔案大小單位換算，常見的 MB, GB ...)。
+在 Unix, Linux 下，可以利用 $ echo -n -e <text> 完成手動建立測試資料。
+
+echo -n -e "hello\nworld" >test.dat
+
+explanation
+-n
+    do not output the trailing newline
+-e
+    enable interpretation of the backslash-escaped characters listed below
+
+建二進制文件：
+    echo -n "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz" > test.bin
+    cat test.bin (to output the file)
+
+    vim -b test.bin
+    (-b tells vim we open a binary file，if not adding -b, 0x0a, or 換行字元, will be added at the end of file)
+
+    :%! xxd
+    這裡的冒號 : 是進入 Vim 的 command-line mode，跟一般的 Vim 指令相同，例如存檔（:w）等。
+
+    百分比符號 % 是指定 ex command-line ranges，代表整個檔案，也就是說將整個檔案內容都進行轉換。
+
+    驚嘆號 ! 是指定 filter commands，filter command 是一個可從標準輸入讀取資料，經過一些處理之後，輸出至標準輸出的外部指令，而這裡我們使用 xxd 這一個傾印 16 進位資料的小工具作為 filter command
+
+    呼叫 xxd 這一個 filter command 之後，Vim 的內容就會變成 16 進位的排版格式，這時候就可以查看或編輯二進位檔案的內容了。
+
+    若要將編輯過後的內容轉換回二進位格式，則在 Vim 中輸入 %! xxd -r
+
+    ./a.out > ans_file (output to ans_file)
+    ./a.out < data_file > ans_file (input the data_file then output to ans_file)
+
+    > v.s. >> 
+    >: cover the original file; if file does not exists, make file
+    >>: concatenate to the end of the file; the file must exists

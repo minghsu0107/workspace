@@ -1,0 +1,43 @@
+make DEFINE_INIT_VALUE=true CMD=colon              輸出: ==>  Hello all the World!
+make DEFINE_INIT_VALUE=true CMD=question_mark      輸出: ==>  Hello!
+make DEFINE_INIT_VALUE=true CMD=plus               輸出: ==>  Hello! Danny!
+
+make DEFINE_INIT_VALUE= CMD=colon                  輸出: ==>  Hello all the World!
+make DEFINE_INIT_VALUE= CMD=question_mark          輸出: ==>  Hello World!
+make DEFINE_INIT_VALUE= CMD=plus                   輸出: ==>  Danny!
+
+
+總結:
+= 是最基本的賦值
+:= 會覆蓋變數之前的值
+?= 變數為空時才給值，不然則維持之前的值
++= 將值附加到變數的後面
+
+= 在執行時擴展(values within it are recursively expanded when the variable is used, not when it's declared)
+:= 在定義時擴展(values within it are expanded at declaration time)
+
+1. =
+
+      make會將整個makefile展開後，才決定變數的值。也就是说，變數的值會是整個Makefile中最後被指定的值。看例子：
+
+            x = hello
+            y = $(x) world!
+            x = hi
+
+            all:
+                 @echo $(y)
+
+      在上例中，輸出結果將會是 hi world! ，而不是 hello world!
+
+2. :=
+
+      變數的值在Makefile展開途中就會被給定，而不是整個Makefile展開後的最终值。
+
+            x := hello
+            y := $(x) world!
+            x := hi
+
+            all:
+                 @echo $(y)
+
+      輸出結果 ====> hello world!

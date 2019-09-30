@@ -1,0 +1,7 @@
+separate compilation:
+gcc -c stack.c -o stack.o
+gcc -c balance.c -o balance.o
+gcc -c palindrome.c -o palindrome.o
+
+gcc balance.o stack.o -o balance.out
+gcc palindrome.o stack.o -o palindrome.out

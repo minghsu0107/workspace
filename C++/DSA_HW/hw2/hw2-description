@@ -1,0 +1,14 @@
+We define that the 0'th string is a empty string.
+For the i'th string, it is one of previous strings (The p'th string where 0≤p<i) with a lower case English letter appended to it. 
+
+Input format
+
+    The first line contain a single integer n , which denotes the number of strings.
+    For the next n line, the i'th line decribes the i'th string. In i'th line , there’re a integer l and a character c, which means that the i'th string is the l'th string with c appended to it.
+    The next line contain a single integer q, which denotes the number of questions.
+    In each of next q line, there’re two integer i, j , which means that you are asked to output the lcp( i'th string, j'th string ). 
+
+Output format
+
+    For each question, output the anser of it in a line. 
+
