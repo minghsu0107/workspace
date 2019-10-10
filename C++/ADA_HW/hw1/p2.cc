@@ -5,6 +5,10 @@ const int maxn = 5e5 + 10;
 const ll inf = 1e10;
 int n, m;
 ll p;
+
+// maxl: max prefix sum of the current interval
+// maxr: max suffix sum of the current interval
+// maxs: max sum of the current interval
 struct node {
     ll sum, maxs, maxl, maxr;
 } a[maxn<<2];
