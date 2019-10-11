@@ -62,6 +62,6 @@ int main(){
 
 dp(x,b,fx,c,d)=max{dp(x−1,a,b,c,d)+PC(a,b,fx)}
 
-dp(x,a,b,d,fx)=max{dp(x−1,a,b,c,d)+PC(a,b,fx)}
+dp(x,a,b,d,fx)=max{dp(x−1,a,b,c,d)+PC(c,d,fx)}
 
 */
