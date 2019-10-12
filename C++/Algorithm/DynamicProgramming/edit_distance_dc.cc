@@ -3,7 +3,7 @@
 #define MAXN 1000000
 using namespace std;
 const int INF = 1e9 + 7;
-int dp[2][MAXN]; 
+int dp[2][MAXN], d[3][3];
 
 string reverse(string str) {
     int len = str.length();
@@ -33,9 +33,9 @@ void print_sol(int m, int n, string &X, string &Y) {
 		cout << "   " << endl;
 		return;
 	}
-	if (dp[m][n] == dp[m - 1][n] + 1)
+	if (d[m][n] == d[m - 1][n] + 1)
 		print_sol(m - 1, n, X, Y);
-	else if (dp[m][n] == dp[m][n - 1] + 1)
+	else if (d[m][n] == d[m][n - 1] + 1)
 		print_sol(m, n - 1, X, Y);
 	else
 		print_sol(m - 1, n - 1, X, Y);
@@ -56,18 +56,17 @@ int edit_dc(int m, int n, string &X, string &Y) {
 	*/
     if (n <= 2 || m <= 2) {
     	//return edit(m, n, X, Y); 
-    	int dp[m + 1][n + 1];
 		for (int i = 0; i <= m; ++i) { 
 			for (int j = 0; j <= n; ++j) { 
-				if (i == 0) dp[i][j] = j;
-				else if (j == 0) dp[i][j] = i; 
-				else if (X[i - 1] == Y[j - 1]) dp[i][j] = dp[i - 1][j - 1]; 
+				if (i == 0) d[i][j] = j;
+				else if (j == 0) d[i][j] = i; 
+				else if (X[i - 1] == Y[j - 1]) d[i][j] = d[i - 1][j - 1]; 
 				else
-					dp[i][j] = 1 + min(dp[i][j - 1], min(dp[i - 1][j], dp[i - 1][j - 1]));
+					d[i][j] = 1 + min(d[i][j - 1], min(d[i - 1][j], d[i - 1][j - 1]));
 			} 
 		}
 		print_sol(m, n, X, Y); 
-		return dp[m][n];
+		return d[m][n];
     }
     
     string RX = reverse(X);
@@ -99,7 +98,7 @@ int edit_dc(int m, int n, string &X, string &Y) {
 
 int main() { 
     string X = "sunday"; 
-    string Y = "zxsaturday"; 
+    string Y = "saturday"; 
 
     cout << edit_dc(X.length(), Y.length(), X, Y) << endl;
     return 0; 
