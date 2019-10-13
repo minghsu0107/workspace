@@ -28,10 +28,34 @@ typedef struct {
     unsigned short port;  // port to listen
     int listen_fd;  // fd to wait for a new connection
 } server;
+
+typedef struct {
+    char host[512];  // client's host
+    int conn_fd;  // fd to talk with client
+    char buf[512];  // data sent by/to client
+    size_t buf_len;  // bytes used by buf
+} request;
+
 server svr;
+request* requestP = NULL;  // point to a list of requests
+
+static void init_request(request* reqP) {
+    reqP->conn_fd = -1;
+    reqP->buf_len = 0;
+    reqP->item = 0;
+    reqP->wait_for_write = 0;
+}
+
+static void free_request(request* reqP) {
+    /*if (reqP->filename != NULL) {
+        free(reqP->filename);
+        reqP->filename = NULL;
+    }*/
+    init_request(reqP);
+}
 
 // 取得 pointer of sockaddr，IPv4 或 IPv6：
-void *get_in_addr(struct sockaddr *sa) {
+static void *get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
@@ -39,7 +63,7 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 // 給我們一個 socket，並且 bind 它
-void init_server(unsigned short port) {
+static void init_server(unsigned short port) {
     gethostname(svr.hostname, sizeof(svr.hostname));
     svr.port = port;
     char PORT[12];
@@ -136,15 +160,18 @@ int main() {
     for (;;) {
         read_fds = master; // 複製 master
 
+        // select() will return if:
+        // 1. any event happens
+        // 2. timeout (no event happens after a period of time)
         if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
             perror("select");
             exit(4);
         }
 
-        // 在現存的連線中尋找需要讀取的資料
+        // 在現存的連線(read_fds set)中尋找需要讀取的資料
         for (i = 0; i <= fdmax; i++) {
             if (FD_ISSET(i, &read_fds)) { // 我們找到一個！！
-                if (i == svr.listen_fd) {
+                if (i == svr.listen_fd) { // listen 的 socket 就緒可讀(有一個待處理的新連線)
                     // handle new connections
                     addrlen = sizeof(remoteaddr);
                     newfd = accept(svr.listen_fd, (struct sockaddr *)&remoteaddr, &addrlen);
@@ -166,7 +193,7 @@ int main() {
                 } 
                 else {
                     // 處理來自 client 的資料
-                    if ((nbytes = recv(i, buf, sizeof buf, 0)) <= 0) {
+                    if ((nbytes = recv(i, buf, sizeof(buf), 0)) <= 0) {
                         // got error or connection closed by client
                         if (nbytes == 0) {
                             // 關閉連線

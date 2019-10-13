@@ -193,7 +193,7 @@ static void init_server(unsigned short port) {
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY); // bind 到本機IP [就像AI_PASSIVE 旗標］
-    servaddr.sin_port = htons(port);
+    servaddr.sin_port = htons(port); // to Big-Endian (Network Byte Order)
     tmp = 1;
     if (setsockopt(svr.listen_fd, SOL_SOCKET, SO_REUSEADDR, (void*)&tmp, sizeof(tmp)) < 0) {
         ERR_EXIT("setsockopt");
