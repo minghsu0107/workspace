@@ -67,7 +67,7 @@ uint16_t ntohs(uint16_t netshort); // network to host short
 ```
 
 ### connect
-用 socket 連線到 "www.example.com" 的 port 3490
+用 socket 連線到 "www.example.com" 的 port 3490 [telnet]
 ```C
 struct addrinfo hints, *res;
 int sockfd;
@@ -102,7 +102,67 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 sockfd 是正在進行 listen() 的 socket descriptor。addr 通常是一個指向 local struct sockaddr_storage 的指標，儲存進來的連線的資訊［你可以用它來得知client是哪一台主機從哪一個 port 呼叫你的］。addrlen 是一個 local 的整數變數，應該在將它的位址傳遞給 accept() 以前，將它設定為 sizeof(struct sockaddr_storage)。accept() 不會存放更多的 bytes（位元組）到addr。若它存放了較少的 bytes 進去，它會改變 addrlen 的值來表示
 
 accept() 通常會 block（阻塞），而你可以使用 select() 事先取得 listen 中的 socket descriptor 狀態，檢查 socket 是否就緒可讀（ready to read）。若為就緒可讀，則表示有新的連線正在等待被 accept()！另一個方式是將 listen 中的 socket 使用 fcntl() 設定 O_NONBLOCK 旗標，然後 listen 中的 socket descriptor 就不會造成 block，而是傳回 -1，並將 errno 設定為 EWOULDBLOCK。
-### recv
+### send and recv
+這兩個用來通信的函式是透過 stream socket 或 connected datagram socket
+#### send
+```C
+#include <sys/types.h>
+#include <sys/socket.h>
+
+ssize_t send(int s, const void *buf, size_t len, int flags);
+```
+- MSG_OOB:
+以 "out of band" 送出，TCP支援這項功能，而這個方法可以用來告訴接收端，有高優先權的資料需要接收。接收端會收到 SIGURG 訊號，並且可以先從佇列中接收這筆資料。
+
+- MSG_DONTROUTE: 
+不要透過 router 送出這筆資料，只將它留在區域網路內部。
+
+- MSG_DONTWAIT:
+若 send() 會因為外部流量堵塞而導致 block，讓它直接傳回 EAGAIN。這類似＂只針對這次的 send() 啟用 non-blocking＂
+
+- MSG_NOSIGNAL:若你 send() 的遠端主機不再接收資料了，一般你會收到 SIGPIPE 訊號，新增這個 flag 可以避免觸發這個訊號。
+
+```C
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int sendall(int s, char *buf, int *len)
+{
+    int total = 0; // 我們已經送出多少 bytes 的資料
+    int bytesleft = *len; // 我們還有多少資料要送
+    int n;
+
+    while (total < *len) {
+        n = send(s, buf+total, bytesleft, 0);
+        if (n == -1) { break; }
+        total += n;
+        bytesleft -= n;
+    }
+
+    *len = total; // 傳回實際上送出的資料量
+
+    return n == -1? -1: 0; // 失敗時傳回 -1、成功時傳回 0
+}
+```
+```C
+char buf[10] = "Beej!";
+int len;
+
+len = strlen(buf);
+if (sendall(s, buf, &len) == -1) {
+    perror("sendall");
+    printf("We only sent %d bytes because of the error!\n", len);
+}
+```
+#### recv
+```C
+#include <sys/types.h>
+#include <sys/socket.h>
+
+ssize_t recv(int s, void *buf, size_t len, int flags);
+```
+當你呼叫 recv() 時，它會 block，直到讀到了一些資料，如果你希望它不會 block，那麼可以將 socket 設定為 non-blocking、或者是在呼叫 recv() 或 recvfrom() 以前，使用 select() 或 poll() 檢查 socket 上是否有資料。
+
 ### select
 ```C
 int select(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,

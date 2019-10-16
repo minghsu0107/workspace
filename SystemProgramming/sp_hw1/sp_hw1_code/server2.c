@@ -1,4 +1,4 @@
-#include <unistd.h> // gethostname
+#include <unistd.h> // gethostname, getdtablesize
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +8,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-
+#include <sys/wait.h>
+#include <signal.h>
 #define ERR_EXIT(a) { perror(a); exit(1); }
 
 typedef struct {
@@ -38,6 +39,21 @@ const char* accept_write_header = "ACCEPT_FROM_WRITE";
 
 static void init_server(unsigned short port);
 // initailize a server, exit for error
+
+static void sigchld_handler(int s) {
+    while (waitpid(-1, NULL, WNOHANG) > 0);
+}
+
+static void clean_process() {
+    struct sigaction sa;
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
+}
 
 static void init_request(request* reqP);
 // initailize a request instance
@@ -71,7 +87,7 @@ int main(int argc, char** argv) {
 
     // Initialize server
     init_server((unsigned short) atoi(argv[1]));
-
+    clean_process();
     // Get file descripter table size and initize request table
     maxfd = getdtablesize();
     requestP = (request*) malloc(sizeof(request) * maxfd);
@@ -92,6 +108,7 @@ int main(int argc, char** argv) {
         
         // Check new connection
         clilen = sizeof(cliaddr);
+        // blocking
         conn_fd = accept(svr.listen_fd, (struct sockaddr*)&cliaddr, (socklen_t*)&clilen);
         if (conn_fd < 0) {
             if (errno == EINTR || errno == EAGAIN) continue;  // try again
@@ -111,16 +128,19 @@ int main(int argc, char** argv) {
 			fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
 			continue;
 		}
-
+        if (!fork()) { // child process (have its own process table where fd is inherited)
+            close(svr.listen_fd); // do not affect parent's fd
 #ifdef READ_SERVER
-		sprintf(buf,"%s : %s\n",accept_read_header,requestP[conn_fd].buf);
-		write(requestP[conn_fd].conn_fd, buf, strlen(buf));
+    		sprintf(buf,"%s : %s\n",accept_read_header,requestP[conn_fd].buf);
+    		write(requestP[conn_fd].conn_fd, buf, strlen(buf));
 #else
-		sprintf(buf,"%s : %s\n",accept_write_header,requestP[conn_fd].buf);
-		write(requestP[conn_fd].conn_fd, buf, strlen(buf));
-#endif
-
-		close(requestP[conn_fd].conn_fd);
+    		sprintf(buf,"%s : %s\n",accept_write_header,requestP[conn_fd].buf);
+    		write(requestP[conn_fd].conn_fd, buf, strlen(buf));
+#endif      
+            close(requestP[conn_fd].conn_fd);
+            exit(0);
+        }
+		close(requestP[conn_fd].conn_fd); // parent closes first
 		free_request(&requestP[conn_fd]);
     }
     free(requestP);
@@ -160,7 +180,7 @@ static int handle_read(request* reqP) {
     char buf[512];
 
     // Read in request from client
-    r = read(reqP->conn_fd, buf, sizeof(buf));
+    r = read(reqP->conn_fd, buf, sizeof(buf)); // blocking, wait until user input
     if (r < 0) return -1;
     if (r == 0) return 0;
 	char* p1 = strstr(buf, "\015\012");
@@ -176,7 +196,7 @@ static int handle_read(request* reqP) {
 	size_t len = p1 - buf + 1;
 	memmove(reqP->buf, buf, len);
 	reqP->buf[len - 1] = '\0';
-	reqP->buf_len = len-1;
+	reqP->buf_len = len - 1;
     return 1;
 }
 
