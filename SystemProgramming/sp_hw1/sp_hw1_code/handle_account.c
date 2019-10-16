@@ -41,10 +41,9 @@ int main() {
 	for (int i = 1; i <= MAXACCOUNT; ++i) {
 		printf("id = %d, balance = %d\n", accounts[i].id, accounts[i].balance);
 	}
-	
-	//accounts[1].balance = 10000;
-	//update_database(accounts_fd);
 	/*
+	accounts[1].balance = 10000;
+	update_database(accounts_fd);
 	fetch();
 	printf("Updated data:\n");
 	for (int i = 1; i <= MAXACCOUNT; ++i) {
