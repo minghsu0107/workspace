@@ -28,3 +28,9 @@ The first is that the listening socket is ready for read. In other words, there 
 
 The second situation is that the socket of the existe connection is ready for read. We should handle requests of the bank system here. I use check_read() and check_write() to handle the advisory lock for read requests and write requests respectively. We should ensure that an account waiting for write should not be read or written by other connections.
 Finally, I use serve_write() to validate save, withdraw, and transfer operations. See more in **server.c**.
+## Note
+To compress/decompress a folder:
+```
+tar -zcvf compressed.tar.gz folder_name # compress
+tar -xzvf compressed.tar.gz # decompress
+```

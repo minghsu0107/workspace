@@ -41,20 +41,9 @@ int accounts_fd, locked_id;
 int islocked[MAXACCOUNT + 1] = {};
 #endif
 
-void fetch() {
-    FILE *fp = fopen("./account_list", "r");
-    int rv, i, ret;
-    i = 0;
-    for (; i < MAXACCOUNT * 2; ++i) {
-        rv = fread(&ret, sizeof(int), 1, fp);
-        if (i & 1)
-            accounts[i / 2 + 1].balance = ret;
-        else
-            accounts[i / 2 + 1].id = ret;
-        if (rv != 1)
-            break;
-    }
-    fclose(fp);
+void fetch(int accounts_fd) {
+    lseek(accounts_fd, 0, SEEK_SET);
+    read(accounts_fd, &accounts[1], sizeof(Account) * MAXACCOUNT);
 }
 
 void update_database(int accounts_fd) {
@@ -135,17 +124,10 @@ static void init_table(int *max_dtable_size) {
     strcpy(requestP[svr.listen_fd].host, svr.hostname);
 
     accounts = (Account*) malloc(sizeof(Account) * (MAXACCOUNT + 1));
-    fetch();
+    fetch(accounts_fd);
 }
 
-static int handle_read(request* reqP) {
-    int r;
-    char buf[512];
-
-    // Read in request from client
-    r = read(reqP->conn_fd, buf, sizeof(buf));
-    if (r < 0) return -1;
-    if (r == 0) return 0;
+static int handle_read(request* reqP, char* buf) {
     char* p1 = strstr(buf, "\015\012");
     int newline_len = 2;
     // be careful that in Windows, line ends with \015\012
@@ -174,20 +156,17 @@ static int check_read(int fd) {
     lock.l_start = (query_id - 1) * sizeof(Account);
     lock.l_len = sizeof(Account);
 
-    if (fcntl(accounts_fd, F_GETLK, &lock) == -1)
-        ERR_EXIT("fcntl");
-    
-    if (lock.l_type == F_UNLCK) {
-        lock.l_type = F_RDLCK;
-        if (fcntl(accounts_fd, F_SETLKW, &lock) == -1)
-            ERR_EXIT("fcntl");
-        requestP[fd].item = query_id;
-        fetch();
-        sprintf(tmp, "%d %d\n", accounts[query_id].id, accounts[query_id].balance);
-        write(fd, tmp, strlen(tmp));
-        return 0;
+    if (fcntl(accounts_fd, F_SETLK, &lock) == -1) {
+        if (errno == EACCES || errno == EAGAIN)
+            return -1;
+        else ERR_EXIT("fcntl");
     }
-    return -1;
+    
+    requestP[fd].item = query_id;
+    fetch(accounts_fd);
+    sprintf(tmp, "%d %d\n", accounts[query_id].id, accounts[query_id].balance);
+    write(fd, tmp, strlen(tmp));
+    return 0;
 }
 #else
 static int check_write(int fd) {
@@ -200,14 +179,13 @@ static int check_write(int fd) {
     lock.l_whence = SEEK_SET;
     lock.l_start = (query_id - 1) * sizeof(Account);
     lock.l_len = sizeof(Account);
-
-    if (fcntl(accounts_fd, F_GETLK, &lock) == -1)
-        ERR_EXIT("fcntl");
    
-    if ((islocked[query_id] == 0) && (lock.l_type == F_UNLCK)) {
-        lock.l_type = F_WRLCK;
-        if (fcntl(accounts_fd, F_SETLKW, &lock) == -1)
-            ERR_EXIT("fcntl");
+    if (islocked[query_id] == 0) {
+        if (fcntl(accounts_fd, F_SETLK, &lock) == -1) {
+            if (errno == EACCES || errno == EAGAIN)
+                return -1;
+            else ERR_EXIT("fcntl");
+        }
 
         islocked[query_id] = 1;
         requestP[fd].item = query_id;
@@ -272,8 +250,8 @@ int main(int argc, char** argv) {
     char buf[512], tmp[512], remoteIP[INET_ADDRSTRLEN];
 
     init_server((unsigned short) atoi(argv[1]));
-    init_table(&max_dtable_size);
     accounts_fd = openat(AT_FDCWD, "./account_list", O_RDWR);
+    init_table(&max_dtable_size);
 
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
@@ -317,43 +295,52 @@ int main(int argc, char** argv) {
                     }
                 } 
                 else {
-                    // handle existing client
-                    res = handle_read(&requestP[i]);
-                    if (res < 0) {
-                        fprintf(stderr, "bad request from %s\n", requestP[i].host);
-                        continue;
-                    }
-                    if (FD_ISSET(i, &master)) {
-#ifdef READ_SERVER
-                        if ((res = check_read(i)) < 0) {
-                            sprintf(tmp, "This account is locked.\n");
-                            write(i, tmp, strlen(tmp));
-                        }
+                    if ((nbytes = recv(i, buf, sizeof(buf), 0)) <= 0) {
+                        if (nbytes == 0) {
+                            fprintf(stderr, "server: socket %d hung up\n", i);
+                        } 
                         else {
-                            unlock(requestP[i].item);
+                            fprintf(stderr, "bad request from %s\n", requestP[i].host);
+                            perror("recv");
                         }
-#else
-                        if (!requestP[i].wait_for_write) {
-                            if ((res = check_write(i)) < 0) {
+                        close(i);
+                        free_request(&requestP[i]);
+                        FD_CLR(i, &master);
+                    } 
+                    else {
+                        if (FD_ISSET(i, &master)) {
+                            handle_read(&requestP[i], buf);
+#ifdef READ_SERVER
+                            if ((res = check_read(i)) < 0) {
                                 sprintf(tmp, "This account is locked.\n");
                                 write(i, tmp, strlen(tmp));
                             }
-
-                        }
-                        else {     
-                            if ((res = serve_write(i)) < 0) {
-                                sprintf(tmp, "Operation failed.\n");
-                                write(i, tmp, strlen(tmp));
+                            else {
+                                unlock(requestP[i].item);
                             }
-                            unlock(requestP[i].item);
-                            islocked[requestP[i].item] = 0;
-                            requestP[i].wait_for_write = 0;
-                        }
+#else
+                            if (!requestP[i].wait_for_write) {
+                                if ((res = check_write(i)) < 0) {
+                                    sprintf(tmp, "This account is locked.\n");
+                                    write(i, tmp, strlen(tmp));
+                                }
+
+                            }
+                            else {     
+                                if ((res = serve_write(i)) < 0) {
+                                    sprintf(tmp, "Operation failed.\n");
+                                    write(i, tmp, strlen(tmp));
+                                }
+                                unlock(requestP[i].item);
+                                islocked[requestP[i].item] = 0;
+                                requestP[i].wait_for_write = 0;
+                            }
 #endif              
-                        if (!requestP[i].wait_for_write) {
-                            close(i);
-                            free_request(&requestP[i]);
-                            FD_CLR(i, &master);  
+                            if (!requestP[i].wait_for_write) {
+                                close(i);
+                                free_request(&requestP[i]);
+                                FD_CLR(i, &master);  
+                            }
                         }     
                     }         
                 }

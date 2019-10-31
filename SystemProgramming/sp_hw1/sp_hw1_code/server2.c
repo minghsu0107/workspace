@@ -23,8 +23,8 @@ typedef struct {
     int conn_fd;  // fd to talk with client
     char buf[512];  // data sent by/to client
     size_t buf_len;  // bytes used by buf
-    // you don't need to change this.
-	int item;
+    
+	int item; // account id
     int wait_for_write;  // used by handle_read to know if the header is read or not.
 } request;
 
