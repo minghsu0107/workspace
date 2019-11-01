@@ -43,7 +43,7 @@ void get_min(){
         pmin[tail]=i;
         while(pmin[head]<i-k+1)   //如果隊首元素的下標過小，則將該過期的隊首元素刪除
             ++head;
-        mi[i-k+1]=qmin[head];   //記錄下新隊首元素的下標
+        mi[i-k+1]=qmin[head];   //記錄下新隊首元素
     }
     for(int i=1;i<=n-k+1;i++){
         i==1?printf("%d",mi[i]):printf(" %d",mi[i]);

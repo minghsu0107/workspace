@@ -6,7 +6,7 @@
 using namespace std;
 class HuffmanCodes {
 private:
-   struct Node {
+    struct Node {
       char data;
       size_t freq;
       Node *left;
@@ -17,33 +17,33 @@ private:
         delete left;
         delete right;
       }
-   };
-   struct compare {
+    };
+    struct compare {
       bool operator()(Node* l, Node* r) {
           return (l->freq > r->freq);
       }
-   };
-void printCode(Node* root, std::string str) {
-   if (root == nullptr) return;
-   if (root->data != '$') {
-      cout << root->data << " : " << str << "\n";
-   }
-   printCode(root->left, str + "0");
-   printCode(root->right, str + "1");
-}
+    };
+    void printCode(Node* root, std::string str) {
+       if (root == nullptr) return;
+       if (root->data != '$') {
+          cout << root->data << " : " << str << "\n";
+       }
+       printCode(troot->left, str + "0");
+       printCode(root->right, str + "1");
+    }
 public:
-  HuffmanCodes() {};
-  ~HuffmanCodes() {}
-  void GenerateCode(std::vector<char>& data, std::vector<size_t>& freq) {
-     Node *left;
-     Node *right;
-     std::priority_queue<Node*, std::vector<Node*>, compare > minHeap;
+    HuffmanCodes() {};
+    ~HuffmanCodes() {}
+    void GenerateCode(std::vector<char>& data, std::vector<size_t>& freq) {
+        Node *left;
+        Node *right;
+        std::priority_queue<Node*, std::vector<Node*>, compare > minHeap;
 
-     for (size_t i = 0; i < data.size(); ++i) {
-         minHeap.push(new Node(data[i], freq[i]));
-     }
+        for (size_t i = 0; i < data.size(); ++i) {
+            minHeap.push(new Node(data[i], freq[i]));
+        }
 
-      while (minHeap.size() != 1) {
+        while (minHeap.size() != 1) {
             left = minHeap.top();
             minHeap.pop();
 
@@ -54,16 +54,16 @@ public:
             top->left  = left;
             top->right = right;
             minHeap.push(top);
-      }
-      printCode(minHeap.top(), "");
-  }
+        }
+        printCode(minHeap.top(), "");
+    }
 };
 int main() {
-  HuffmanCodes set1;
-  std::vector<char> data({'d', 'e', 'b', 'c', 'a', 'f'});
-  std::vector<size_t> freq({16, 9, 13, 12, 45, 5});
-  set1.GenerateCode(data, freq);
-  return 0;
+    HuffmanCodes set1;
+    std::vector<char> data({'d', 'e', 'b', 'c', 'a', 'f'});
+    std::vector<size_t> freq({16, 9, 13, 12, 45, 5});
+    set1.GenerateCode(data, freq);
+    return 0;
 }
 /* 
 
