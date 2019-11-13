@@ -1,2 +1,2 @@
-b
-ab
+abcdcdc
+abcddc

@@ -24,7 +24,7 @@ ll solve(int len1, int len2) {
     memset(dp, INF, sizeof(dp));
     
     // dp[i][j] == # of least operations
-    // making s1[0:i] and s2[0:j] be s1' and s2'
+    // making s1[0 to i-1] and s2[0 to j-1] be s1' and s2'
     // where len(s1') == len(s2') and s1 != s2 at every element
     dp[0][0] = 0;
     for (int i = 0; i < len1; ++i) {
