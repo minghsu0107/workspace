@@ -147,7 +147,6 @@ void judge() {
 		winner_id = tmp_id;
 		winner_money = tmp_money;
 		outputResults(fp2);
-		//fprintf(stderr, "winner: %d %d\n", winner_id, winner_money);
 	}
 	else {
 		printf("%d %d\n", tmp_id, tmp_money);
@@ -225,28 +224,25 @@ int main(int argc, char *argv[]) {
 	depth = (int)strtol(argv[3], NULL, 10);
 	
 	init();
-	read_players();
-	run();
-	exit(0);
-	
-	/*
-	for (int i = 0; i < 1; ++i) {
-		read_players();
-		
-		if (players[0] == -1) {
-			if (depth == 0) {
-				fclose(fp1);
-				fclose(fp2);
+	if (depth == 0) {
+		for (;;) {
+			read_players();
+			
+			if (players[0] == -1) {
+				if (depth == 0) {
+					fclose(fp1);
+					fclose(fp2);
+				}
+				sendStopMessage(depth, l);
+				sendStopMessage(depth, r);
+				exit(0);
 			}
-			else {
-				close(STDIN_FILENO);
-				close(STDOUT_FILENO);
-			}
-			sendStopMessage(depth, l);
-			sendStopMessage(depth, r);
-			fprintf(stderr, "end!\n");
-			exit(0);
+			run();
 		}
+	}
+	else {
+		read_players();
 		run();
-	}*/
+		exit(0);
+	}
 }

@@ -50,7 +50,6 @@ void init(int num_host, int num_player) {
 	bid.batch = 8;
 	bid.num_host = num_host;
 	bid.num_player = num_player;
-	memset(bid.player, 0, sizeof(bid.player));
 	com(0, 0);
 
 	for (int i = 0; i < bid.num_player; ++i)
@@ -152,13 +151,12 @@ void run() {
 		++num_comp;
 	}
 	sendStopMessage();
+	while ((wpid = wait(NULL)) > 0);
 
 	while (read_cnt < tot_comp) {
 		handle_read(fp[0]);
 		++read_cnt;
 	}
-	
-	while ((wpid = wait(NULL)) > 0);
 	outputRanks();
 }
 
