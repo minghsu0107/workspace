@@ -6,24 +6,13 @@
 #include "my_header.h"
 
 int tmp[MAXN], scores[MAXN], idx[MAXN], dummy, key, _;
-FILE *fp[MAXHOST];
+FILE *fp;
 int random_key[MAXHOST], hosts[MAXRAND];
 char FIFO[MAXHOST][MAXBUF], buf[MAXBUF];
 char arg1[MAXBUF], arg2[MAXBUF], arg3[MAXBUF];
 
 BidSystem bid;
 Host host;
-
-#ifdef DEBUG
-void print() {
-	for (int i = 0; i < bid.plen; ++i) {
-		for (int j = 0; j < bid.batch; ++j) {
-			printf("%2d ", bid.player[i][j]);
-		}
-		puts("");
-	}
-}
-#endif
 
 void com(int d, int len) {  
     if (len == bid.batch) {  
@@ -84,13 +73,13 @@ void execHost(int host_id, int random_key, int depth) {
 }
 
 void assignPlayers(FILE* fpr, int num_comp) {
-	fseek(fpr, 0, SEEK_SET);
 	fprintf(fpr, "%d", bid.player[num_comp][0]);
 	for (int i = 1; i < bid.batch; ++i) {
 		fprintf(fpr, " %d", bid.player[num_comp][i]);
 	}
 	fprintf(fpr, "\n");
     fflush(fpr);
+    fclose(fpr);
 }
 
 int handle_read(FILE *fpr) {
@@ -104,13 +93,10 @@ int handle_read(FILE *fpr) {
 
 void sendStopmessage() {
 	for (int i = 1; i <= bid.num_host; ++i) {
-		fseek(fp[i], 0, SEEK_SET);
-		fprintf(fp[i], "-1");
-		for (int i = 1; i < bid.batch; ++i) {
-			fprintf(fp[i], " -1");
-		}
-		fprintf(fp[i], "\n");
-		fflush(fp[i]);
+		if ((fp = fopen(FIFO[i], "w")) == NULL)
+			errExit("fopen");
+		fprintf(fp, "-1 -1 -1 -1 -1 -1 -1 -1\n");
+		fflush(fp);
 	}
 }
 
@@ -152,9 +138,9 @@ void run() {
 			execHost(i, random_key[i], 0);
 		}
 		else {
-			if ((fp[i] = fopen(FIFO[i], "w")) == NULL)
+			if ((fp = fopen(FIFO[i], "w")) == NULL)
 				errExit("fopen");
-			assignPlayers(fp[i], num_comp);
+			assignPlayers(fp, num_comp);
 			++num_comp;
 		}
 	}
@@ -198,10 +184,6 @@ int main(int argc, char *argv[]) {
 	int num_host = (int)strtol(argv[1], NULL, 10);
 	int num_player = (int)strtol(argv[2], NULL, 10);
 	init(num_host, num_player);
-
-#ifdef DEBUG
-	print();
-#endif
 	run();
 	exit(0);
 }

@@ -5,14 +5,16 @@
 #include <signal.h>
 #include "my_header.h"
 
-FILE *fp;
+FILE *fp1;
+FILE *fp2;
 static int l = 0;
 static int r = 1;
 int l_downFd[2], l_upFd[2], r_downFd[2], r_upFd[2];
-int players[MAXN], host_id, random_key, depth, l_id, l_money, r_id, r_money;
+int players[MAXN];
+int host_id, random_key, depth, l_id, l_money, r_id, r_money, winner_id;
 char buf[MAXBUF], arg1[MAXBUF], arg2[MAXBUF], arg3[MAXBUF], arg4[MAXBUF];
 
-void init(int depth) {
+void init() {
 	if (pipe(l_downFd) < 0)
 		errExit("pipe");
 	if (pipe(l_upFd) < 0)
@@ -22,13 +24,11 @@ void init(int depth) {
 	if (pipe(r_upFd) < 0)
 		errExit("pipe");
 }
-
 void read_players(int host_id, int depth) {
 	if (depth == 0) {
 		sprintf(buf, "/tmp/Host%d.FIFO", host_id);
-		fp = fopen(buf, "r");
-		fseek(fp, 0, SEEK_SET);
-		fscanf(fp, "%d %d %d %d %d %d %d %d", &players[0], &players[1], 
+		fp1 = fopen(buf, "r");
+		fscanf(fp1, "%d %d %d %d %d %d %d %d", &players[0], &players[1], 
 			   &players[2], &players[3], &players[4], &players[5], 
 			   &players[6], &players[7]);
 	}
@@ -46,24 +46,20 @@ void redirectIO(int direction) {
 		if (l_downFd[0] != STDIN_FILENO) {
 			if (dup2(l_downFd[0], STDIN_FILENO) != STDIN_FILENO)
 				errExit("dup2");
-			close(l_downFd[0]);
 		}
 		if (l_upFd[1] != STDOUT_FILENO) {
 			if (dup2(l_upFd[1], STDOUT_FILENO) != STDOUT_FILENO)
 				errExit("dup2");
-			close(l_upFd[1]);
 		}
 	}
 	else if (direction == 1) {
 		if (r_downFd[0] != STDIN_FILENO) {
 			if (dup2(r_downFd[0], STDIN_FILENO) != STDIN_FILENO)
 				errExit("dup2");
-			close(r_downFd[0]);
 		}
 		if (r_upFd[1] != STDOUT_FILENO) {
 			if (dup2(r_upFd[1], STDOUT_FILENO) != STDOUT_FILENO)
 				errExit("dup2");
-			close(r_upFd[1]);
 		}
 	}
 }
@@ -84,7 +80,7 @@ void execPlayer(int direction) {
 	execve("player", args, NULL);
 }
 
-void runHost(int host_id, int depth, int direction) {
+void allocatePlayers(int depth, int direction) {
 	if (direction == 0) {
 		if (depth == 0) {
 			dprintf(l_downFd[1], "%d %d %d %d\n", players[0], players[1],
@@ -94,11 +90,6 @@ void runHost(int host_id, int depth, int direction) {
 		else if (depth == 1) {
 			dprintf(l_downFd[1], "%d %d\n", players[0], players[1]);
 			fsync(l_downFd[1]);
-		}
-		else if (depth == 2) {
-			read(l_upFd[0], buf, sizeof(buf));
-			sscanf(buf, "%d %d", &l_id, &l_money);
-			fprintf(stderr, "%d %d\n", l_id, l_money);
 		}
 	}
 	else if (direction == 1) {
@@ -111,49 +102,66 @@ void runHost(int host_id, int depth, int direction) {
 			dprintf(r_downFd[1], "%d %d\n", players[2], players[3]);
 			fsync(r_downFd[1]);
 		}
-		else if (depth == 2) {
-			read(r_upFd[0], buf, sizeof(buf));
-			sscanf(buf, "%d %d", &r_id, &r_money);
-			fprintf(stderr, "%d %d\n", r_id, r_money);
-		}
+	}
+}
+/*
+dprintf(l_downFd[1], "%d\n", winner_id);
+dprintf(r_downFd[1], "%d\n", winner_id);
+*/
+void judge(int depth) {
+	read(l_upFd[0], buf, sizeof(buf));
+	sscanf(buf, "%d %d", &l_id, &l_money);
+	read(r_upFd[0], buf, sizeof(buf));
+	sscanf(buf, "%d %d", &r_id, &r_money);
+
+	int tmp_id, tmp_money;
+	if (l_money > r_money) {
+		tmp_id = l_id;
+		tmp_money = l_money;
+	}
+	else {
+		tmp_id = r_id;
+		tmp_money = r_money;
+	}
+
+	if (depth == 0) {
+		fprintf(stderr, "winner: %d %d\n", tmp_id, tmp_money);
+	}
+	else {
+		printf("%d %d\n", tmp_id, tmp_money);
 	}
 }
 
-void run(int host_id, int random_key, int depth) {
-	read_players(host_id, depth);
+void sendStopMessage(int depth, int direction) {
+	if (direction == 0) {
+		if (depth == 0) {
+			dprintf(l_downFd[1], "-1 -1 -1 -1\n");
+			fsync(l_downFd[1]);
+		}
+		else if (depth == 1) {
+			dprintf(l_downFd[1], "-1 -1\n");
+			fsync(l_downFd[1]);
+		}
+		close(l_downFd[1]);
+		close(l_upFd[0]);
+	}
+	else if (direction == 1) {
+		if (depth == 0) {
+			dprintf(r_downFd[1], "-1 -1 -1 -1\n");
+			fsync(r_downFd[1]);
+		}
+		else if (depth == 1) {
+			dprintf(r_downFd[1], "-1 -1\n");
+			fsync(r_downFd[1]);
+		}
+		close(r_downFd[1]);
+		close(r_upFd[0]);
+	}
+}
 
+void run() {
 	int child_pid, wpid;
-	if (depth == 0) {
-		if ((child_pid = fork()) < 0) {
-			errExit("fork");
-		}
-		else if (child_pid == 0) {
-			execSubHost(host_id, random_key, depth + 1, l);
-		}
-
-		if ((child_pid = fork()) < 0) {
-			errExit("fork");
-		}
-		else if (child_pid == 0) {
-			execSubHost(host_id, random_key, depth + 1, r);
-		}
-	}
-	else if (depth == 1) {
-		if ((child_pid = fork()) < 0) {
-			errExit("fork");
-		}
-		else if (child_pid == 0) {
-			execSubHost(host_id, random_key, depth + 1, l);
-		}
-
-		if ((child_pid = fork()) < 0) {
-			errExit("fork");
-		}
-		else if (child_pid == 0) {
-			execSubHost(host_id, random_key, depth + 1, r);
-		}
-	}
-	else if (depth == 2) {
+	if (depth == 2) {
 		if ((child_pid = fork()) < 0) {
 			errExit("fork");
 		}
@@ -168,8 +176,24 @@ void run(int host_id, int random_key, int depth) {
 			execPlayer(r);
 		}
 	}
-	runHost(host_id, depth, l);
-	runHost(host_id, depth, r);
+	else {
+		if ((child_pid = fork()) < 0) {
+			errExit("fork");
+		}
+		else if (child_pid == 0) {
+			execSubHost(host_id, random_key, depth + 1, l);
+		}
+
+		if ((child_pid = fork()) < 0) {
+			errExit("fork");
+		}
+		else if (child_pid == 0) {
+			execSubHost(host_id, random_key, depth + 1, r);
+		}
+	}
+	allocatePlayers(depth, l);
+	allocatePlayers(depth, r);
+	judge(depth);
 	while ((wpid = wait(NULL)) > 0);
 }
 
@@ -177,7 +201,29 @@ int main(int argc, char *argv[]) {
 	host_id = (int)strtol(argv[1], NULL, 10);
 	random_key = (int)strtol(argv[2], NULL, 10);
 	depth = (int)strtol(argv[3], NULL, 10);
-	init(depth);
-	run(host_id, random_key, depth);
+	
+	init();
+	read_players(host_id, depth);
+	run();
 	exit(0);
+	/*
+	for (int i = 0; i < 1; ++i) {
+		read_players(host_id, depth);
+		
+		if (players[0] == -1) {
+			if (depth == 0) {
+				//fclose(fp1);
+				//fclose(fp2);
+			}
+			else {
+				close(STDIN_FILENO);
+				close(STDOUT_FILENO);
+			}
+			sendStopMessage(depth, l);
+			sendStopMessage(depth, r);
+			exit(0);
+		}
+		run();
+	}
+	*/
 }
