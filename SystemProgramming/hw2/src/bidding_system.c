@@ -12,7 +12,6 @@ char FIFO[MAXHOST][MAXBUF], buf[MAXBUF];
 char arg1[MAXBUF], arg2[MAXBUF], arg3[MAXBUF];
 
 BidSystem bid;
-Host host;
 
 void com(int d, int len) {  
     if (len == bid.batch) {  
@@ -60,7 +59,6 @@ void init(int num_host, int num_player) {
 		random_key[i] = rand() % MAXRAND;
 		hosts[random_key[i]] = i;
 	}
-	memset(host.results, 0, sizeof(host.results));
 	buidHostCommunication();
 }
 
@@ -82,17 +80,18 @@ void assignPlayers(FILE* fpr, int num_comp) {
 }
 
 int handle_read(FILE *fpr) {
-	fscanf(fpr, "%d", &host.random_key);
+	int random_key, id, rank;
+	fscanf(fpr, "%d", &random_key);
 	for (int i = 0; i < bid.batch; ++i) {
-		fscanf(fpr, "%d %d", &id, &host.results[i]);
-		scores[id - 1] += (bid.batch - host.results[i]);
-		//fprintf(stderr,"%d %d\n", id, host.results[i]);
+		fscanf(fpr, "%d %d", &id, &rank);
+		scores[id - 1] += (bid.batch - rank);
 	}
-	return host.random_key;
+	return random_key;
 }
 
-void sendStopmessage() {
-	for (int i = 1; i <= bid.num_host; ++i) {
+void sendStopMessage() {
+	int n = min(bid.num_host, bid.plen);
+	for (int i = 1; i <= n; ++i) {
 		fprintf(fp[i], "-1 -1 -1 -1 -1 -1 -1 -1\n");
 		fflush(fp[i]);
 	}
@@ -145,7 +144,6 @@ void run() {
 	
 	fp[0] = fopen(FIFO[0], "r");
 	dummy = open(FIFO[0], O_WRONLY);
-	/*
 	while (num_comp < tot_comp) {
 		key = handle_read(fp[0]);
 		++read_cnt;
@@ -153,14 +151,13 @@ void run() {
 		assignPlayers(fp[hosts[key]], num_comp);
 		++num_comp;
 	}
-	*/
-	
+	sendStopMessage();
+
 	while (read_cnt < tot_comp) {
 		handle_read(fp[0]);
 		++read_cnt;
 	}
 	
-	//sendStopmessage();
 	while ((wpid = wait(NULL)) > 0);
 	outputRanks();
 }
@@ -175,5 +172,12 @@ int main(int argc, char *argv[]) {
 	int num_player = (int)strtol(argv[2], NULL, 10);
 	init(num_host, num_player);
 	run();
+	for (int i = 0; i <= bid.num_host; ++i) {
+		if (i == 0)
+			sprintf(buf, "./Host.FIFO");
+		else
+			sprintf(buf, "./Host%d.FIFO", i);
+		remove(buf);
+	}
 	exit(0);
 }

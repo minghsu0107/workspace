@@ -153,7 +153,7 @@ void judge() {
 		printf("%d %d\n", tmp_id, tmp_money);
 	}
 }
-/*
+
 void sendStopMessage(int depth, int direction) {
 	if (direction == 0) {
 		if (depth == 0) {
@@ -180,7 +180,7 @@ void sendStopMessage(int depth, int direction) {
 		close(r_upFd[0]);
 	}
 }
-*/
+
 void run() {
 	int child_pid, wpid;
 	if (depth == 2) {
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
 	host_id = (int)strtol(argv[1], NULL, 10);
 	random_key = (int)strtol(argv[2], NULL, 10);
 	depth = (int)strtol(argv[3], NULL, 10);
-
+	
 	init();
 	read_players();
 	run();
