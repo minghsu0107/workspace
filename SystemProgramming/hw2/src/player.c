@@ -4,7 +4,7 @@
 int main(int argc, char *argv[]) {
 	int winner_id, ok;
 	int player_id = (int)strtol(argv[1], NULL, 10);
-/*
+	/*
 	for (int i = 0; i < NUM_ROUNDS; ++i) {
 		
 		if (i != 0) {
@@ -12,9 +12,9 @@ int main(int argc, char *argv[]) {
 		}
 		
 		printf("%d %d\n", player_id, player_id * 10);
-		fprintf(stderr, "%d\n", i);
+		fflush(stdout);
 	}
-*/
+	*/
 	printf("%d %d\n", player_id, player_id * 10);
 	fflush(stdout);
 	exit(0);

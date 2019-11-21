@@ -12,7 +12,7 @@
 
 #define MAXGR 3005
 #define MAXHOST 15
-#define MAXN 8
+#define MAXN 15
 #define MAXBUF 512
 #define MAXRAND 65536
 #define NUM_ROUNDS 10

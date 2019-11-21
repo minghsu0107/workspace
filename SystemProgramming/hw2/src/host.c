@@ -5,16 +5,22 @@
 #include <signal.h>
 #include "my_header.h"
 
-FILE *fp1;
-FILE *fp2;
+FILE *fp1, *fp2;
 static int l = 0;
 static int r = 1;
+static int batch = 8;
 int l_downFd[2], l_upFd[2], r_downFd[2], r_upFd[2];
 int players[MAXN];
-int host_id, random_key, depth, l_id, l_money, r_id, r_money, winner_id;
+int host_id, random_key, depth, l_id, l_money, r_id, r_money, winner_id, winner_money;
 char buf[MAXBUF], arg1[MAXBUF], arg2[MAXBUF], arg3[MAXBUF], arg4[MAXBUF];
 
 void init() {
+	if (depth == 0) {
+		sprintf(buf, "./Host%d.FIFO", host_id);
+		fp1 = fopen(buf, "r");
+		sprintf(buf, "./Host.FIFO");
+		fp2 = fopen(buf, "w+");
+	}
 	if (pipe(l_downFd) < 0)
 		errExit("pipe");
 	if (pipe(l_upFd) < 0)
@@ -24,10 +30,8 @@ void init() {
 	if (pipe(r_upFd) < 0)
 		errExit("pipe");
 }
-void read_players(int host_id, int depth) {
+void read_players() {
 	if (depth == 0) {
-		sprintf(buf, "/tmp/Host%d.FIFO", host_id);
-		fp1 = fopen(buf, "r");
 		fscanf(fp1, "%d %d %d %d %d %d %d %d", &players[0], &players[1], 
 			   &players[2], &players[3], &players[4], &players[5], 
 			   &players[6], &players[7]);
@@ -64,7 +68,7 @@ void redirectIO(int direction) {
 	}
 }
 
-void execSubHost(int host_id, int random_key, int depth, int direction) {
+void execSubHost(int depth, int direction) {
 	redirectIO(direction);
 	sprintf(arg1, "%d", host_id);
 	sprintf(arg2, "%d", random_key);
@@ -80,7 +84,7 @@ void execPlayer(int direction) {
 	execve("player", args, NULL);
 }
 
-void allocatePlayers(int depth, int direction) {
+void allocatePlayers(int direction) {
 	if (direction == 0) {
 		if (depth == 0) {
 			dprintf(l_downFd[1], "%d %d %d %d\n", players[0], players[1],
@@ -108,7 +112,22 @@ void allocatePlayers(int depth, int direction) {
 dprintf(l_downFd[1], "%d\n", winner_id);
 dprintf(r_downFd[1], "%d\n", winner_id);
 */
-void judge(int depth) {
+
+void outputResults(FILE *fp) {
+	fprintf(fp, "%d\n", random_key);
+	for (int i = 0; i < batch; ++i) {
+		if (players[i] == winner_id) {
+			fprintf(fp, "%d %d\n", players[i], 1);
+		}
+		else {
+			fprintf(fp, "%d %d\n", players[i], 2);
+		}
+	}
+	fprintf(fp, "\n");
+    fflush(fp);
+}
+
+void judge() {
 	read(l_upFd[0], buf, sizeof(buf));
 	sscanf(buf, "%d %d", &l_id, &l_money);
 	read(r_upFd[0], buf, sizeof(buf));
@@ -125,13 +144,16 @@ void judge(int depth) {
 	}
 
 	if (depth == 0) {
-		fprintf(stderr, "winner: %d %d\n", tmp_id, tmp_money);
+		winner_id = tmp_id;
+		winner_money = tmp_money;
+		outputResults(fp2);
+		//fprintf(stderr, "winner: %d %d\n", winner_id, winner_money);
 	}
 	else {
 		printf("%d %d\n", tmp_id, tmp_money);
 	}
 }
-
+/*
 void sendStopMessage(int depth, int direction) {
 	if (direction == 0) {
 		if (depth == 0) {
@@ -158,7 +180,7 @@ void sendStopMessage(int depth, int direction) {
 		close(r_upFd[0]);
 	}
 }
-
+*/
 void run() {
 	int child_pid, wpid;
 	if (depth == 2) {
@@ -181,19 +203,19 @@ void run() {
 			errExit("fork");
 		}
 		else if (child_pid == 0) {
-			execSubHost(host_id, random_key, depth + 1, l);
+			execSubHost(depth + 1, l);
 		}
 
 		if ((child_pid = fork()) < 0) {
 			errExit("fork");
 		}
 		else if (child_pid == 0) {
-			execSubHost(host_id, random_key, depth + 1, r);
+			execSubHost(depth + 1, r);
 		}
 	}
-	allocatePlayers(depth, l);
-	allocatePlayers(depth, r);
-	judge(depth);
+	allocatePlayers(l);
+	allocatePlayers(r);
+	judge();
 	while ((wpid = wait(NULL)) > 0);
 }
 
@@ -201,19 +223,20 @@ int main(int argc, char *argv[]) {
 	host_id = (int)strtol(argv[1], NULL, 10);
 	random_key = (int)strtol(argv[2], NULL, 10);
 	depth = (int)strtol(argv[3], NULL, 10);
-	
+
 	init();
-	read_players(host_id, depth);
+	read_players();
 	run();
 	exit(0);
+	
 	/*
 	for (int i = 0; i < 1; ++i) {
-		read_players(host_id, depth);
+		read_players();
 		
 		if (players[0] == -1) {
 			if (depth == 0) {
-				//fclose(fp1);
-				//fclose(fp2);
+				fclose(fp1);
+				fclose(fp2);
 			}
 			else {
 				close(STDIN_FILENO);
@@ -221,9 +244,9 @@ int main(int argc, char *argv[]) {
 			}
 			sendStopMessage(depth, l);
 			sendStopMessage(depth, r);
+			fprintf(stderr, "end!\n");
 			exit(0);
 		}
 		run();
-	}
-	*/
+	}*/
 }

@@ -8,4 +8,4 @@ player: player.c my_header.h
 	gcc player.c  -o player
 
 clean:
-	rm -f bidding_system host player /tmp/*.FIFO
+	rm -f bidding_system host player *.FIFO
