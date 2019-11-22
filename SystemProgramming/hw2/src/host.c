@@ -10,7 +10,7 @@ static int l = 0;
 static int r = 1;
 static int batch = 8;
 int l_downFd[2], l_upFd[2], r_downFd[2], r_upFd[2];
-int players[MAXN];
+int players[MAXN], isFirstRound, wpid;
 int host_id, random_key, depth, l_id, l_money, r_id, r_money, winner_id, winner_money;
 char buf[MAXBUF], arg1[MAXBUF], arg2[MAXBUF], arg3[MAXBUF], arg4[MAXBUF];
 
@@ -50,26 +50,29 @@ void redirectIO(int direction) {
 		if (l_downFd[0] != STDIN_FILENO) {
 			if (dup2(l_downFd[0], STDIN_FILENO) != STDIN_FILENO)
 				errExit("dup2");
+				close(l_downFd[0]);
 		}
 		if (l_upFd[1] != STDOUT_FILENO) {
 			if (dup2(l_upFd[1], STDOUT_FILENO) != STDOUT_FILENO)
 				errExit("dup2");
+				close(l_upFd[1]);
 		}
 	}
 	else if (direction == 1) {
 		if (r_downFd[0] != STDIN_FILENO) {
 			if (dup2(r_downFd[0], STDIN_FILENO) != STDIN_FILENO)
 				errExit("dup2");
+				close(r_downFd[0]);
 		}
 		if (r_upFd[1] != STDOUT_FILENO) {
 			if (dup2(r_upFd[1], STDOUT_FILENO) != STDOUT_FILENO)
 				errExit("dup2");
+				close(r_upFd[1]);
 		}
 	}
 }
 
 void execSubHost(int depth, int direction) {
-	redirectIO(direction);
 	sprintf(arg1, "%d", host_id);
 	sprintf(arg2, "%d", random_key);
 	sprintf(arg3, "%d", depth);
@@ -78,7 +81,6 @@ void execSubHost(int depth, int direction) {
 }
 
 void execPlayer(int direction) {
-	redirectIO(direction);
 	sprintf(arg1, "%d", players[0 + direction]);
 	char *args[] = {"./player", arg1, NULL};
 	execve("player", args, NULL);
@@ -108,10 +110,7 @@ void allocatePlayers(int direction) {
 		}
 	}
 }
-/*
-dprintf(l_downFd[1], "%d\n", winner_id);
-dprintf(r_downFd[1], "%d\n", winner_id);
-*/
+
 
 void outputResults(FILE *fp) {
 	fprintf(fp, "%d\n", random_key);
@@ -146,12 +145,13 @@ void judge() {
 	if (depth == 0) {
 		winner_id = tmp_id;
 		winner_money = tmp_money;
-		outputResults(fp2);
 	}
 	else {
 		printf("%d %d\n", tmp_id, tmp_money);
+		fflush(stdout);
 	}
 }
+
 
 void sendStopMessage(int depth, int direction) {
 	if (direction == 0) {
@@ -163,8 +163,6 @@ void sendStopMessage(int depth, int direction) {
 			dprintf(l_downFd[1], "-1 -1\n");
 			fsync(l_downFd[1]);
 		}
-		close(l_downFd[1]);
-		close(l_upFd[0]);
 	}
 	else if (direction == 1) {
 		if (depth == 0) {
@@ -175,18 +173,17 @@ void sendStopMessage(int depth, int direction) {
 			dprintf(r_downFd[1], "-1 -1\n");
 			fsync(r_downFd[1]);
 		}
-		close(r_downFd[1]);
-		close(r_upFd[0]);
 	}
 }
 
 void run() {
-	int child_pid, wpid;
+	int child_pid;
 	if (depth == 2) {
 		if ((child_pid = fork()) < 0) {
 			errExit("fork");
 		}
 		else if (child_pid == 0) {
+			redirectIO(l);
 			execPlayer(l);
 		}
 
@@ -194,6 +191,7 @@ void run() {
 			errExit("fork");
 		}
 		else if (child_pid == 0) {
+			redirectIO(r);
 			execPlayer(r);
 		}
 	}
@@ -202,6 +200,7 @@ void run() {
 			errExit("fork");
 		}
 		else if (child_pid == 0) {
+			redirectIO(l);
 			execSubHost(depth + 1, l);
 		}
 
@@ -209,40 +208,81 @@ void run() {
 			errExit("fork");
 		}
 		else if (child_pid == 0) {
+			redirectIO(r);
 			execSubHost(depth + 1, r);
 		}
 	}
-	allocatePlayers(l);
-	allocatePlayers(r);
-	judge();
-	while ((wpid = wait(NULL)) > 0);
 }
+
 
 int main(int argc, char *argv[]) {
 	host_id = (int)strtol(argv[1], NULL, 10);
 	random_key = (int)strtol(argv[2], NULL, 10);
 	depth = (int)strtol(argv[3], NULL, 10);
-	
+
+	isFirstRound = 1;
 	init();
+	read_players();
 	if (depth == 0) {
+		run();
 		for (;;) {
-			read_players();
-			
 			if (players[0] == -1) {
-				if (depth == 0) {
-					fclose(fp1);
-					fclose(fp2);
-				}
 				sendStopMessage(depth, l);
 				sendStopMessage(depth, r);
-				exit(0);
+				while ((wpid = wait(NULL)) > 0);
+				_exit(0);
 			}
-			run();
+			allocatePlayers(l);
+			allocatePlayers(r);
+			isFirstRound = 1;
+			for (int i = 0; i < NUM_ROUNDS; ++i) {
+				if (!isFirstRound) {
+					dprintf(l_downFd[1], "%d\n", winner_id);
+					fsync(l_downFd[1]);
+					dprintf(r_downFd[1], "%d\n", winner_id);
+					fsync(r_downFd[1]);
+				}
+				judge();
+				isFirstRound = 0;
+			}
+			outputResults(fp2);
+			read_players();
 		}
 	}
 	else {
-		read_players();
 		run();
-		exit(0);
-	}
+		for (;;) {
+			if (players[0] == -1) {
+				if (depth == 1) {
+					sendStopMessage(depth, l);
+					sendStopMessage(depth, r);
+					while ((wpid = wait(NULL)) > 0);
+				}
+				_exit(0);
+			}
+			if (depth == 1) {
+				allocatePlayers(l);
+				allocatePlayers(r);
+			}
+			else if (isFirstRound == 0 && depth == 2) {
+				run();
+			}
+			isFirstRound = 1;
+			for (int i = 0; i < NUM_ROUNDS; ++i) {
+				if (isFirstRound == 0) {
+					scanf("%d", &winner_id);
+					dprintf(l_downFd[1], "%d\n", winner_id);
+					fsync(l_downFd[1]);
+					dprintf(r_downFd[1], "%d\n", winner_id);
+					fsync(r_downFd[1]);
+				}
+				judge();
+				isFirstRound = 0;
+			}
+			if (depth == 2) {
+				while ((wpid = wait(NULL)) > 0);
+			}
+			read_players();
+		}
+	}	
 }

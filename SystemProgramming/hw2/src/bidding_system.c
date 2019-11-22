@@ -163,7 +163,7 @@ void run() {
 int main(int argc, char *argv[]) {
 	if (argc != 3) {
 		fprintf(stderr, "Usage:./bidding_system [host_num] [player_num]\n");
-		exit(0);
+		_exit(0);
 	}
 
 	int num_host = (int)strtol(argv[1], NULL, 10);
@@ -177,5 +177,5 @@ int main(int argc, char *argv[]) {
 			sprintf(buf, "./Host%d.FIFO", i);
 		remove(buf);
 	}
-	exit(0);
+	_exit(0);
 }
