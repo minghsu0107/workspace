@@ -10,7 +10,7 @@ make
 It is worth noting that pipe and FIFO would block until the other end is read or written.
 Therefore, we should make use of this attribute so that we always have data before moving on. Also, we cannot reposition the file pointer of FIFO or pipe.
 
-Another important point is that as long as we write data smaller than PIPE_BUF, the action will be atomic. This guarantees that no read interleaved data will be read.
+Another important point is that as long as we write data smaller than PIPE_BUF, the action will be atomic. This guarantees that no interleaved data will be read.
 
 In bidding_system.c, we save file pointers of all FIFO so that we can directly read or write to the file next time, saving the time for repopening. To comput final scores, I sort the indices of players by their scores, and iterate through the index array to find ranks.
 
