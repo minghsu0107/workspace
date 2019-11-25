@@ -223,8 +223,8 @@ int main(int argc, char *argv[]) {
 	isFirstRound = 1;
 	init();
 	read_players();
+	run();
 	if (depth == 0) {
-		run();
 		for (;;) {
 			if (players[0] == -1) {
 				sendStopMessage(depth, l);
@@ -250,7 +250,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	else {
-		run();
 		for (;;) {
 			if (players[0] == -1) {
 				if (depth == 1) {
@@ -280,9 +279,9 @@ int main(int argc, char *argv[]) {
 				isFirstRound = 0;
 			}
 			if (depth == 2) {
-				while ((wpid = wait(NULL)) > 0);
+				while ((wpid = wait(NULL)) > 0); // important!
 			}
-			read_players();
+			read_players(); // block until next competition
 		}
 	}	
 }
