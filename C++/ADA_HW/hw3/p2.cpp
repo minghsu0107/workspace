@@ -42,7 +42,7 @@ bool operator> (const Node &a, const Node &b) {
     return (a.val < b.val);
 }
 
-
+// no need maintain visited
 void dijkstra(int s) {
     priority_queue <Node> q;
     while(!q.empty()) q.pop();

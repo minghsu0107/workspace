@@ -141,9 +141,9 @@ edge(X,Y)是所有在「Forest GA=(V,A)」中，連結各個connected component�
  
 Kruskal's Algorithm按照「weight由小到大」的順序挑選edge，並且避免產生cycle，即可找到MST
 
-orting of edges takes O(ELogE) time. 
+sorting of edges takes O(ELogE) time. 
 After sorting, we iterate through all edges and apply find-union algorithm. 
-The find and union operations can take atmost O(LogV) time. 
+The find and union operations can take at most O(logV) time. 
 
 
 complexity = O(ElogE+Elogv), since E < V^2 -> logE < 2logV

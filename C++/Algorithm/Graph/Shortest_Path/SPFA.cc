@@ -38,7 +38,7 @@ int main() {
         		if (dis[q] > dis[p] + w) {               
                 dis[q] = dis[p] + w;
                 if (!isIn[q]) {
-                   if (++cnt[q] >= n) {
+                   if (++cnt[q] >= n) { // max update time = n - 1
                       cout << "negative cycle" << endl;
                       return 0;
                    }
@@ -58,8 +58,9 @@ int main() {
     return 0;
 }
 // idea is just like BellmanFord, but SPFA only considers
-// the vertice whose distances have been updated
+// the vertice whose distances have been updated (save in queue)
 // if a vertex goes into queue >= n times,
 // then there is a negative cycle (we can use an array for counting)
 // when the graph is sparse, use SPFA
-// when the graph is dense, use dijkstra
+// when the graph is dense, use dijkstra(with heap)
+// 負環的比較：BellmanFord偵測到的負環為整個Graph的，SPFA偵測到的負環為從start出發會走的到的
