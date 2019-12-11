@@ -225,6 +225,7 @@ int main(int argc, char *argv[]) {
 	int n = setjmp(MAIN);
 	if (n == -1) {
 		Scheduler();
+		reset();
 		exit(0);
 	}
 	else {
