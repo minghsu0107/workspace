@@ -17,3 +17,8 @@ In bidding_system.c, we save file pointers of all FIFO so that we can directly r
 In host.c, we only exec each host once; after finishing the current competion, each host will be blocked until players of the next competion are assigned. By the way, do not forget to redirect I/O before executing the processes!
 
 Finally, always remember to wait for children! Otherwise, there will be resources leaked and zombie processes will be created.
+
+## Test Resource Use
+```shell=
+time [command]
+```
