@@ -4,14 +4,21 @@
 #include <stdlib.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <assert.h>
 #include "scheduler.h"
+#define errExit(a) { perror(a); exit(1); }
 #define SIGUSR3 SIGWINCH
+#define NUMFUNC 4
+#define MAXBUF 1000
 
 static jmp_buf MAIN;
-static int P, Q, task, release, mutex = 0;
-static int cnt[5];
+static int P, Q, task, release, mutex = 0, ack = 1;
+static int cnt[NUMFUNC + 1];
+static char buf[MAXBUF];
 static struct sigaction newact, oldact;
-static sigset_t newmask, oldmask;
+static sigset_t newmask, oldmask, pendmask;
+static volatile sig_atomic_t ptr[NUMFUNC] = {1, 1, 1, 1};
+static volatile FCB_ptr tmp_fcb = NULL;
 
 extern jmp_buf SCHEDULER;
 int idx = 0;
@@ -20,22 +27,42 @@ FCB_ptr Current = NULL;
 FCB_ptr Head = NULL;
 
 void printList(FCB_ptr start) {
-	printf("%d %d %d\n", start->Previous->Name, start->Name, start->Next->Name);
-	FCB_ptr i = start->Next;
-	for (; i != start; i = i->Next)
-		printf("%d %d %d\n", i->Previous->Name, i->Name, i->Next->Name);
+	assert (start->Next != NULL);
+
+	int len = 1;
+	sprintf(buf, "%d", start->Next->Name);
+	FCB_ptr i = start->Next->Next;
+	for (; i != start; i = i->Next) {
+		if (ptr[i->Name - 1] == 1) {
+			sprintf(buf + len, " %d", i->Name);
+			len += 2;
+		}
+	}
+	buf[len++] = '\n';
+	buf[len] = '\0';
+	write(STDOUT_FILENO, buf, sizeof(buf));
 }
 
 void sig_usr(int signo) {
 	if (signo == SIGUSR1) {
+		write(STDOUT_FILENO, &ack, sizeof(int));
+
+		sigprocmask(SIG_BLOCK, &newmask, NULL);
 		longjmp(SCHEDULER, -3);
 	}
 	else if (signo == SIGUSR2) {
-		mutex = 0;
+		write(STDOUT_FILENO, &ack, sizeof(int));
+
+		sigprocmask(SIG_BLOCK, &newmask, NULL);
 		longjmp(SCHEDULER, -3);
 	}
 	else if (signo == SIGUSR3) {
-		fflush(stdout);
+		write(STDOUT_FILENO, &ack, sizeof(int));
+		printList(Current);
+
+		tmp_fcb = Current->Next;
+		Current->Next = Current;
+		sigprocmask(SIG_BLOCK, &newmask, NULL);
 		longjmp(SCHEDULER, -3);
 	}
 }
@@ -57,6 +84,20 @@ void set_mask() {
 	sigprocmask(SIG_BLOCK, &newmask, &oldmask);
 }
 
+void check_sigpending() {
+	if (sigpending(&pendmask) < 0)
+		errExit("sigpending");
+	int mes1, mes2, mes3;
+	mes1 = sigismember(&pendmask, SIGUSR1);
+	mes2 = sigismember(&pendmask, SIGUSR2);
+	mes3 = sigismember(&pendmask, SIGUSR3);
+	if (mes1 > 0 || mes2 > 0 || mes3 > 0) {
+		if (mes2 > 0)
+			mutex = 0;
+		sigprocmask(SIG_SETMASK, &oldmask, NULL);
+	}
+}
+
 void funct_1(int name) {
 	Current->Next = (FCB_ptr) malloc(sizeof(FCB));
 	Current->Next->Previous = Current;
@@ -64,23 +105,35 @@ void funct_1(int name) {
 	Current = Current->Next;
 	int n = setjmp(Current->Environment);
 	if (n == 1) {
-		if (mutex == 0) {
+		if (tmp_fcb != NULL) {
+			Current->Next = tmp_fcb;
+			tmp_fcb = NULL;
+		}
+		if (mutex == 0 || mutex == 1) {
 			if (cnt[1] || task == 1 || task == 3) {
 				mutex = 1;
-				for (int k = 1; k <= release; ++k) {
+				while (ptr[0] <= release) {
 					for (int j = 1; j <= Q; ++j) {
-						//sleep(1);
+						sleep(1);
 						arr[idx++] = '1';
 					}
+					++ptr[0];
+					if (task == 3)
+						check_sigpending();
 				}
 				mutex = 0;
-				if (task == 2) {
+				
+				if (cnt[1] != 0) {
 					--cnt[1];
+					ptr[0] = 1;
 					longjmp(SCHEDULER, -3);
 				}
 			}
+			longjmp(SCHEDULER, -2);
 		}
-		longjmp(SCHEDULER, -2);
+		else {
+			longjmp(SCHEDULER, -3);
+		}
 	}
 	else {
 		funct_5(name);
@@ -94,23 +147,35 @@ void funct_2(int name) {
 	Current = Current->Next;
 	int n = setjmp(Current->Environment);
 	if (n == 1) {
-		if (mutex == 0) {
+		if (tmp_fcb != NULL) {
+			Current->Next = tmp_fcb;
+			tmp_fcb = NULL;
+		}
+		if (mutex == 0 || mutex == 2) {
 			if (cnt[2] || task == 1 || task == 3) {
 				mutex = 2;
-				for (int k = 1; k <= release; ++k) {
+				while (ptr[1] <= release) {
 					for (int j = 1; j <= Q; ++j) {
-						//sleep(1);
+						sleep(1);
 						arr[idx++] = '2';
 					}
+					++ptr[1];
+					if (task == 3)
+						check_sigpending();
 				}
 				mutex = 0;
-				if (task == 2) {
+				
+				if (cnt[2] != 0) {
 					--cnt[2];
+					ptr[1] = 1;
 					longjmp(SCHEDULER, -3);
 				}
 			}
+			longjmp(SCHEDULER, -2);
 		}
-		longjmp(SCHEDULER, -2);
+		else {
+			longjmp(SCHEDULER, -3);
+		}
 	}
 	else {
 		funct_5(name);
@@ -124,23 +189,35 @@ void funct_3(int name) {
 	Current = Current->Next;
 	int n = setjmp(Current->Environment);
 	if (n == 1) {
-		if (mutex == 0) {
+		if (tmp_fcb != NULL) {
+			Current->Next = tmp_fcb;
+			tmp_fcb = NULL;
+		}
+		if (mutex == 0 || mutex == 3) {
 			if (cnt[3] || task == 1 || task == 3) {
 				mutex = 3;
-				for (int k = 1; k <= release; ++k) {
+				while (ptr[2] <= release) {
 					for (int j = 1; j <= Q; ++j) {
-						//sleep(1);
+						sleep(1);
 						arr[idx++] = '3';
 					}
+					++ptr[2];
+					if (task == 3)
+						check_sigpending();
 				}
 				mutex = 0;
-				if (task == 2) {
+				
+				if (cnt[3] != 0) {
 					--cnt[3];
+					ptr[2] = 1;
 					longjmp(SCHEDULER, -3);
 				}
 			}
+			longjmp(SCHEDULER, -2);
 		}
-		longjmp(SCHEDULER, -2);
+		else {
+			longjmp(SCHEDULER, -3);
+		}
 	}
 	else {
 		funct_5(name);
@@ -154,23 +231,35 @@ void funct_4(int name) {
 	Current = Current->Next;
 	int n = setjmp(Current->Environment);
 	if (n == 1) {
-		if (mutex == 0) {
+		if (tmp_fcb != NULL) {
+			Current->Next = tmp_fcb;
+			tmp_fcb = NULL;
+		}
+		if (mutex == 0 || mutex == 4) {
 			if (cnt[4] || task == 1 || task == 3) {
 				mutex = 4;
-				for (int k = 1; k <= release; ++k) {
+				while (ptr[3] <= release) {
 					for (int j = 1; j <= Q; ++j) {
-						//sleep(1);
+						sleep(1);
 						arr[idx++] = '4';
 					}
+					++ptr[3];
+					if (task == 3)
+						check_sigpending();
 				}
 				mutex = 0;
-				if (task == 2) {
+				
+				if (cnt[4] != 0) {
 					--cnt[4];
+					ptr[3] = 1;
 					longjmp(SCHEDULER, -3);
 				}
 			}
+			longjmp(SCHEDULER, -2);
 		}
-		longjmp(SCHEDULER, -2);
+		else {
+			longjmp(SCHEDULER, -3);
+		}
 	}
 	else {
 		longjmp(MAIN, name);
@@ -198,6 +287,7 @@ void init() {
 	set_mask();
 	Head = (FCB_ptr) malloc(sizeof(FCB));
 	Current = Head;
+	memset(cnt, 0, sizeof(cnt));
 }
 
 void reset() {
