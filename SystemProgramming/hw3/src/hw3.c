@@ -41,12 +41,12 @@ void sig_usr(int signo) {
 }
 
 void install_handler() {
-    newact.sa_handler = sig_usr;
-    sigemptyset(&newact.sa_mask);
-    newact.sa_flags = 0;
-    sigaction(SIGUSR1, &newact, &oldact);
-    sigaction(SIGUSR2, &newact, NULL);
-    sigaction(SIGUSR3, &newact, NULL);
+	newact.sa_handler = sig_usr;
+	sigemptyset(&newact.sa_mask);
+	newact.sa_flags = 0;
+	sigaction(SIGUSR1, &newact, &oldact);
+	sigaction(SIGUSR2, &newact, NULL);
+	sigaction(SIGUSR3, &newact, NULL);
 }
 
 void set_mask() {
