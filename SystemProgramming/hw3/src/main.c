@@ -42,9 +42,10 @@ int main() {
 		errExit("fork");
 	}
 	else if (child_pid == 0) {
-		handle_signals();
 		char *args[] = {"./hw3", arg1, arg2, arg3, arg4, NULL};
 		execve("hw3", args, NULL);
 	}
+	handle_signals();
 	while ((wpid = wait(NULL)) > 0);
+	exit(0);
 }

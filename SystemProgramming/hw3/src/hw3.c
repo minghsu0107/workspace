@@ -10,6 +10,8 @@
 static jmp_buf MAIN;
 static int P, Q, task, release, mutex = 0;
 static int cnt[5];
+static struct sigaction newact, oldact;
+static sigset_t newmask, oldmask;
 
 extern jmp_buf SCHEDULER;
 int idx = 0;
@@ -17,7 +19,14 @@ char arr[10000] = {};
 FCB_ptr Current = NULL;
 FCB_ptr Head = NULL;
 
-static void sig_usr(int signo) {
+void printList(FCB_ptr start) {
+	printf("%d %d %d\n", start->Previous->Name, start->Name, start->Next->Name);
+	FCB_ptr i = start->Next;
+	for (; i != start; i = i->Next)
+		printf("%d %d %d\n", i->Previous->Name, i->Name, i->Next->Name);
+}
+
+void sig_usr(int signo) {
 	if (signo == SIGUSR1) {
 		longjmp(SCHEDULER, -3);
 	}
@@ -29,6 +38,23 @@ static void sig_usr(int signo) {
 		fflush(stdout);
 		longjmp(SCHEDULER, -3);
 	}
+}
+
+void install_handler() {
+    newact.sa_handler = sig_usr;
+    sigemptyset(&newact.sa_mask);
+    newact.sa_flags = 0;
+    sigaction(SIGUSR1, &newact, &oldact);
+    sigaction(SIGUSR2, &newact, NULL);
+    sigaction(SIGUSR3, &newact, NULL);
+}
+
+void set_mask() {
+	sigemptyset(&newmask);
+	sigaddset(&newmask, SIGUSR1);
+	sigaddset(&newmask, SIGUSR2);
+	sigaddset(&newmask, SIGUSR3);
+	sigprocmask(SIG_BLOCK, &newmask, &oldmask);
 }
 
 void funct_1(int name) {
@@ -167,21 +193,27 @@ void funct_5(int name) {
 	}
 }
 
-#ifdef DEBUG
-void printList(FCB_ptr start) {
-	printf("%d %d %d\n", start->Previous->Name, start->Name, start->Next->Name);
-	FCB_ptr i = start->Next;
-	for (; i != start; i = i->Next)
-		printf("%d %d %d\n", i->Previous->Name, i->Name, i->Next->Name);
+void init() {
+	install_handler();
+	set_mask();
+	Head = (FCB_ptr) malloc(sizeof(FCB));
+	Current = Head;
 }
-#endif
+
+void reset() {
+	sigaction(SIGUSR1, &oldact, NULL);
+	sigaction(SIGUSR2, &oldact, NULL);
+	sigaction(SIGUSR3, &oldact, NULL);
+	sigprocmask(SIG_SETMASK, &oldmask, NULL);
+}
 
 int main(int argc, char *argv[]) {
+	init();
+
 	P = (int)strtol(argv[1], NULL, 10);
 	Q = (int)strtol(argv[2], NULL, 10);
 	task = (int)strtol(argv[3], NULL, 10);
 	release = (int)strtol(argv[4], NULL, 10);
-
 	if (task == 2) {
 		for (int i = 1; i <= 4; ++i)
 			cnt[i] = (int)(P / release);
@@ -190,15 +222,10 @@ int main(int argc, char *argv[]) {
 		release = P;
 	}
 
-	Head = (FCB_ptr) malloc(sizeof(FCB));
-	Current = Head;
-
 	int n = setjmp(MAIN);
 	if (n == -1) {
-#ifdef DEBUG
-		printList(Head->Next);
-#endif
 		Scheduler();
+		exit(0);
 	}
 	else {
 		funct_5(1);
