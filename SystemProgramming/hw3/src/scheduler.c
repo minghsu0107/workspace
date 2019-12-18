@@ -2,10 +2,7 @@
 #include <stdlib.h>
 #include "scheduler.h"
 
-extern int idx;
-extern char arr[10000];
-jmp_buf SCHEDULER = {};
-
+// implemented by circular linked list
 void Scheduler() {
 	int n, c;
 	n = setjmp(SCHEDULER);

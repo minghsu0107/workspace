@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include "scheduler.h"
 #define MAXN 15
 #define MAXNUMSIG 15
 #define MAXBUF 1000
