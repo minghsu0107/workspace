@@ -146,16 +146,16 @@ void thread_multiply(void *arg) {
 void multiclass_classifier() {
 	threadpool thpool = thpool_init(n_threads);
 
-    for (int i = 0; i < iter; ++i) {
-    	for (int j = 0; j < n_works; ++j) {
-	        Argu *data = (Argu *) malloc(sizeof(Argu));
-	        data->l = j * TRAINSIZE / n_works;
-	        data->r = (j+1) * TRAINSIZE / n_works - 1;
-        
-        	thpool_add_work(thpool, &thread_multiply, (void *) (data));
-    	}
+	for (int i = 0; i < iter; ++i) {
+		for (int j = 0; j < n_works; ++j) {
+			Argu *data = (Argu *) malloc(sizeof(Argu));
+			data->l = j * TRAINSIZE / n_works;
+			data->r = (j+1) * TRAINSIZE / n_works - 1;
+
+			thpool_add_work(thpool, &thread_multiply, (void *) (data));
+		}
  		thpool_wait(thpool);
-		
+
 		get_prob_transpos();
 		for (int i = 0; i < ONEHOTCOLS; ++i) {
 			for (int j = 0; j < DIMENSION; ++j) {
